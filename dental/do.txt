@@ -1,0 +1,20 @@
+# 기본 run 코드
+CUDA_VISIBLE_DEVICES=4 python main.py --root_dir ./data/processed/R --target_dir ./data/processed/V --lambda_cycle 5 --num_epochs 30 --save_path ./checkpoints/CycleGAN/2try --generated_image_save_path generated_images/CycleGAN/2try --batch_size 4 --run_name 2try
+# resize 256 실행코드
+CUDA_VISIBLE_DEVICES=4 python main.py --root_dir ./data/processed/R --target_dir ./data/processed/V --lambda_cycle 5 --num_epochs 30 --save_path ./checkpoints/CycleGAN/2try --generated_image_save_path generated_images/CycleGAN/2try --batch_size 4 --run_name Resize_256 --resize 256
+# gray  and resize 256 실행 코드
+CUDA_VISIBLE_DEVICES=4 python main.py --root_dir ./data/processed/R --target_dir ./data/processed/V --lambda_cycle 10 --num_epochs 30 --save_path ./checkpoints/CycleGAN/Resize256_Gray --generated_image_save_path generated_images/CycleGAN/Resize256_Gray --batch_size 8 --run_name Resize_256_Gray --resize 256 --gray
+# gray 실행 코드
+CUDA_VISIBLE_DEVICES=6 python main.py --root_dir ./data/processed/R --target_dir ./data/processed/V --lambda_cycle 10 --num_epochs 50 --save_path ./checkpoints/CycleGAN/Gray --generated_image_save_path generated_images/CycleGAN/Gray --batch_size 8 --run_name Gray --gray
+# Nonresizing gray 실행코드
+CUDA_VISIBLE_DEVICES=7 python main.py --root_dir ./data/processed/R --target_dir ./data/processed/V --lambda_cycle 10 --num_epochs 50 --save_path ./checkpoints/CycleGAN/NonResizig_Gray --generated_image_save_path generated_images/CycleGAN/NonResizig_Gray --batch_size 4 --run_name NonResizig_Gray --gray
+
+# 코드 문제없는지 테스트
+CUDA_VISIBLE_DEVICES=4 python main.py --root_dir ./data/processed/R --target_dir ./data/processed/V --lambda_cycle 10 --num_epochs 2 --save_path ./checkpoints/CycleGAN/test --generated_image_save_path generated_images/CycleGAN/test --batch_size 4 --run_name test
+
+# metric fid
+- at dental directory
+python metric/fid.py --path ./generated_images/LPIPS_Histogram_matching ./data/processed/V --img_size 256 --batch_size 64
+
+
+RuntimeError: output with shape [1, 256, 256] doesn't match the broadcast shape [3, 256, 256]
