@@ -1,0 +1,7 @@
+/data
+/generated_images
+/wandb
+/checkpoints
+/__pycache__
+*.jpg
+*.pyc

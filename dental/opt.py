@@ -10,9 +10,9 @@ import os
 def get_opts():
     parser=argparse.ArgumentParser()
     # input paths
-    parser.add_argument('--root_dir', type=str, default='../../../nas/lait/5000_Datasets/Image/ukiyoe-1024-v2',
+    parser.add_argument('--root_dir', type=str, default='/nas1/lait/5000_Datasets/Image/ukiyoe-1024-v2',
                         help='root directory of the input dataset')
-    parser.add_argument('--target_dir',type=str, default='../../../nas/lait/5000_Datasets/Image/CelebA/img_align_celeba/',
+    parser.add_argument('--target_dir',type=str, default='/nas1/lait/5000_Datasets/Image/CelebA/img_align_celeba/',
                         help="target root dir")
     parser.add_argument("--lr", type=int,default=0.0002)
     parser.add_argument("--adam_beta1",type=int,default=0.5)
@@ -37,6 +37,8 @@ def get_opts():
     parser.add_argument("--n_res", type=int, default=6)
     
     parser.add_argument('--save', type=bool, default=False, help='wandb and image saving')
+    ## cyclegan | hingeloss
+    parser.add_argument('--loss', type=str, default='cyclegan', help='')
     
     
     args=parser.parse_args()

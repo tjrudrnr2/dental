@@ -9,6 +9,7 @@ from tqdm import tqdm
 from utils import he_init
 from torchvision import transforms
 from PIL import Image
+import loss.hingeloss as hingeloss
 
 class Trainer:
     def __init__(self,G,F,D_y,D_x,loader,target_loader,device,args):
@@ -31,7 +32,10 @@ class Trainer:
         self.target_loader=target_loader
 
         #loss
-        self.GAN_criterion=nn.MSELoss().to(device)
+        if self.args.loss == "cyclegan":
+            self.GAN_criterion=nn.MSELoss().to(device)
+        elif self.args.loss == "hingeloss":
+            self.GAN_criterion=hingeloss.HingeLoss().to(device)
         self.Cycle_criterion=nn.L1Loss().to(device)
         self.Identity_criterion=nn.L1Loss().to(device)
 
@@ -102,7 +106,7 @@ class Trainer:
             epoch_loss_cycle = 0
             epoch_loss_identity = 0
 
-            for ix,(img,target_img) in enumerate(zip(self.loader,self.target_loader)):
+            for ix,(img,(target_img, _)) in enumerate(zip(self.loader,self.target_loader)):
                 img=img.to(self.device)
                 target_img=target_img.to(self.device)
                 # train_step
