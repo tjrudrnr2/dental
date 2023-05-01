@@ -10,6 +10,7 @@ from utils import he_init
 from torchvision import transforms
 from PIL import Image
 import loss.hingeloss as hingeloss
+import wandb
 
 class Trainer:
     def __init__(self,G,F,D_y,D_x,loader,target_loader,device,args):
@@ -75,7 +76,7 @@ class Trainer:
             start=time.time()
             epoch_loss=0
             devide=0
-            for ix,(img,target_img) in enumerate(zip(self.loader,self.target_loader)):
+            for ix,((img,_),target_img) in enumerate(zip(self.loader,self.target_loader)):
                 img=img.to(self.device)
                 target_img=target_img.to(self.device)
                 
@@ -108,7 +109,7 @@ class Trainer:
             epoch_loss_identity = 0
 
             devide=0
-            for ix,(img,target_img) in enumerate(zip(self.loader,self.target_loader)):
+            for ix,((img,_),target_img) in enumerate(zip(self.loader,self.target_loader)):
                 img=img.to(self.device)
                 target_img=target_img.to(self.device)
                 # train_step
@@ -326,7 +327,7 @@ def generate_and_save_images(generator, test_image_loader, save_path, epoch, dev
     ])
 
     image_ix = 0
-    for test_images in test_image_loader:
+    for test_images,_ in test_image_loader:
         test_images = test_images.to(device)
         generated_images = generator(test_images).detach().cpu()
         # Gray scale일 때 아래 실행 코드

@@ -68,15 +68,13 @@ def main():
 
     else:
         print("Training...")
-        if args.save:
-            wandb.init(project=args.project_name,reinit=True)
-            wandb.config.update(args)
-            if args.run_name:
-                wandb.run.name=args.run_name
-                wandb.run.save()
+        wandb.init(project=args.project_name,reinit=True)
+        wandb.config.update(args)
+        if args.run_name:
+            wandb.run.name=args.run_name
+            wandb.run.save()
         print("model_loading...")
         G,F,D_y,D_x=define_models(args)
-        
         
         loader,target_loader=get_train_loader(args.root_dir,args.target_dir,batchsize=args.batch_size,resize=args.resize)
         print("loader len : ", len(loader))

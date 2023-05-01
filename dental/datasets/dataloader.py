@@ -100,8 +100,8 @@ def get_train_loader(root,target_root,batchsize=8,num_workers=4,shuffle=True,siz
                                  std=[0.5,0.5,0.5])
             ])
     
-    dataset=DefaultDataset(root,transform)
-    target_dataset=CustomCelebADataset(target_root,split='train',transforms=celeba_transform)
+    dataset=CustomCelebADataset(root,split='train',transforms=celeba_transform)
+    target_dataset=DefaultDataset(target_root,transform)
 
     loader=data.DataLoader(dataset=dataset,
                            batch_size=batchsize,
@@ -114,10 +114,10 @@ def get_train_loader(root,target_root,batchsize=8,num_workers=4,shuffle=True,siz
                                   shuffle=shuffle
                                   )
     
-    img = next(iter(dataset))
-    vutils.save_image(img[:], f'domain_A_img.png', normalize=True)
-    target_img, _ = next(iter(target_dataset))
-    vutils.save_image(target_img[:], f'domain_B_img.png', normarlize=True)
+    # img = next(iter(dataset))
+    # vutils.save_image(img[:], f'domain_A_img.png', normalize=True)
+    # target_img, _ = next(iter(target_dataset))
+    # vutils.save_image(target_img[:], f'domain_B_img.png', normarlize=True)
     
     return loader,target_loader
 
