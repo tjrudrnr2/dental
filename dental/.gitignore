@@ -4,4 +4,5 @@
 /checkpoints
 /__pycache__
 *.jpg
+*.png
 *.pyc

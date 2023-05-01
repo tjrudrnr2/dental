@@ -10,6 +10,7 @@ from utils import he_init
 from torchvision import transforms
 from PIL import Image
 import loss.hingeloss as hingeloss
+import loss.r1 as r1
 import wandb
 
 class Trainer:
@@ -39,6 +40,8 @@ class Trainer:
             self.GAN_criterion=hingeloss.HingeLoss().to(device)
         self.Cycle_criterion=nn.L1Loss().to(device)
         self.Identity_criterion=nn.L1Loss().to(device)
+        if self.args.r1:
+            self.R1_reg = r1.R1(self.args).to(device)
 
         # pool
         self.generated_x_images = ImagePool(args,50)
@@ -58,7 +61,7 @@ class Trainer:
         self.num_epochs=args.num_epochs
         self.curr_epoch=0
         self.print_every=args.print_every
-        self.generated_image_save_path=args.generated_image_save_path
+        self.generated_image_save_path=os.path.join(args.generated_image_save_path, f'/{self.args.run_name}')
         
         self.init_loss_hist = []
         self.loss_D_x_hist = []
@@ -85,9 +88,11 @@ class Trainer:
                 epoch_loss+=loss
                 devide+=1
             if self.image_test and self.curr_epoch%5==0:
-                generate_and_save_images(self.G,self.loader,self.args.generated_image_save_path,self.curr_epoch,self.device)
+                generate_and_save_images(self.G,self.loader,self.F,self.target_loader,
+                                         save_path,self.curr_epoch,self.args.save,self.device)
             self.curr_epoch+=1
-            wandb.log({"loss_D_x_hist": loss/devide}) 
+            if self.args.save:
+                wandb.log({"loss_D_x_hist": loss/devide}) 
 
             print("Initialization Phase [{0}/{1}], {2:.4f} seconds".format(init_epoch + 1, initialization_epochs,
                                                                            time.time() - start))
@@ -140,23 +145,25 @@ class Trainer:
                           "loss_cycle: {6:.4f} loss_identity: {7:.4f}".format(epoch + 1, ix+1, epoch_loss_D_x / (ix + 1), epoch_loss_D_y / (ix + 1),
                                                                               epoch_loss_G_GAN / (ix + 1), epoch_loss_F_GAN / (ix + 1),
                                                                               epoch_loss_cycle / (ix + 1), epoch_loss_identity / (ix + 1)))  # print progress    
-                wandb.log({
-                            "step_target_Dy" : step_target_Dy,
-                            "step_generated_Dy" : step_generated_Dy,
-                            "step_target_Dx" : step_target_Dx,
-                            "step_generated_Dx" : step_generated_Dx
+                if self.args.save:
+                    wandb.log({
+                                "step_target_Dy" : step_target_Dy,
+                                "step_generated_Dy" : step_generated_Dy,
+                                "step_target_Dx" : step_target_Dx,
+                                "step_generated_Dx" : step_generated_Dx
                     
                 })
-                  
-            wandb.log({"loss_D_x_hist": epoch_loss_D_x/devide,
-                  "loss_D_y_hist" : epoch_loss_D_y/devide,
-                  "loss_G_GAN_hist" : epoch_loss_G_GAN/devide,
-                  "loss_F_GAN_hist" : epoch_loss_F_GAN/devide,
-                  "loss_cycle_hist" : epoch_loss_cycle/devide,
-                  "loss_identity_hist" : epoch_loss_identity/devide,
-                  }) 
+            if self.args.save:              
+                wandb.log({"loss_D_x_hist": epoch_loss_D_x/devide,
+                    "loss_D_y_hist" : epoch_loss_D_y/devide,
+                    "loss_G_GAN_hist" : epoch_loss_G_GAN/devide,
+                    "loss_F_GAN_hist" : epoch_loss_F_GAN/devide,
+                    "loss_cycle_hist" : epoch_loss_cycle/devide,
+                    "loss_identity_hist" : epoch_loss_identity/devide,
+                    }) 
             if self.image_test and self.curr_epoch%5==0:
-                generate_and_save_images(self.G,self.loader,self.generated_image_save_path,self.curr_epoch,self.device)
+                generate_and_save_images(self.G,self.loader,self.F,self.target_loader,
+                                         save_path,self.curr_epoch,self.args.save,self.device)
             self.curr_epoch += 1
             if self.curr_epoch%10==0:
                 self.save_checkpoint(os.path.join(save_path, 'checkpoint-epoch-{0}.ckpt'.format(self.curr_epoch)))
@@ -194,8 +201,14 @@ class Trainer:
         generated_target = torch.zeros_like(generated_output)
         loss_generated = self.GAN_criterion(generated_output, generated_target)
         loss_D_y += loss_generated
+        loss_D_y /= 2
+        
+        # R1 regularizatoin term for Discriminator_y
+        if self.args.r1:
+            r1_reg_y = self.R1_reg(target_output, target_target)
+            loss_D_y += r1_reg_y
 
-        (loss_D_y / 2).backward()
+        loss_D_y.backward()
         self.D_y_optimizer.step()
 
         # train D_x with img and generated_x
@@ -209,8 +222,14 @@ class Trainer:
         generated_target = torch.zeros_like(generated_output)
         loss_generated = self.GAN_criterion(generated_output, generated_target)
         loss_D_x += loss_generated
+        loss_D_x /= 2
+        
+        # R1 regularizatoin term for Discriminator_x
+        if self.args.r1:
+            r1_reg_x = self.R1_reg(photo_output, photo_target)
+            loss_D_x += r1_reg_x
 
-        (loss_D_x / 2).backward()
+        loss_D_x.backward()
         self.D_x_optimizer.step()
 
         # time to train G and F
@@ -318,18 +337,21 @@ class Trainer:
         except:
             self.curr_epoch = int(checkpoint_path.split('-')[-1].split('.')[0])
 
-def generate_and_save_images(generator, test_image_loader, save_path, epoch, device):
+def generate_and_save_images(generator_X, test_image_X_loader, generator_Y, test_image_Y_loader,
+                             save_path, epoch, save, device):
     # 이미지 test + 생성으로 저장.
-    generator.eval()
+    generator_X.eval()
+    generator_Y.eval()
     torch_to_image = transforms.Compose([
         transforms.Normalize(mean=(-1, -1, -1), std=(2, 2, 2)),  # [-1, 1] to [0, 1]
         transforms.ToPILImage()
     ])
-
+    
+    ## Save X to Y image
     image_ix = 0
-    for test_images,_ in test_image_loader:
+    for test_images,_ in test_image_X_loader:
         test_images = test_images.to(device)
-        generated_images = generator(test_images).detach().cpu()
+        generated_images = generator_X(test_images).detach().cpu()
         # Gray scale일 때 아래 실행 코드
         if (test_images.shape)[1]==1:
             generated_images=torch.cat([generated_images,generated_images,generated_images],1)
@@ -343,7 +365,35 @@ def generate_and_save_images(generator, test_image_loader, save_path, epoch, dev
             new_img=Image.new('RGB',(2*((test_image.size)[0]),(test_image.size)[1]))
             new_img.paste(test_image,(0,0))
             new_img.paste(image,((test_image.size)[0],0))
-            new_img.save(os.path.join(save_path, '{0}_{0}.jpg'.format(epoch,image_ix)))
+            new_img.save(os.path.join(save_path, f'XtoY_{epoch}_{image_ix}.jpg'))
+            if save:
+                wandb.log({"Generator_X Samples": [wandb.Image(f'./%s/XtoY_{epoch}_{image_ix}.jpg' %
+                            (save_path))]}, commit=True)
+            image_ix += 1
+        break
+    
+    ## Save Y to X image
+    image_ix = 0
+    for test_images in test_image_Y_loader:
+        test_images = test_images.to(device)
+        generated_images = generator_Y(test_images).detach().cpu()
+        # Gray scale일 때 아래 실행 코드
+        if (test_images.shape)[1]==1:
+            generated_images=torch.cat([generated_images,generated_images,generated_images],1)
+            test_images=torch.cat([test_images,test_images,test_images],1)
+
+        for i in range(len(generated_images)):
+            test_image=test_images[i]
+            test_image=torch_to_image(test_image)
+            image = generated_images[i]
+            image = torch_to_image(image)
+            new_img=Image.new('RGB',(2*((test_image.size)[0]),(test_image.size)[1]))
+            new_img.paste(test_image,(0,0))
+            new_img.paste(image,((test_image.size)[0],0))
+            new_img.save(os.path.join(save_path, f'YtoX_{epoch}_{image_ix}.jpg'))
+            if save:
+                wandb.log({"Generator_Y Samples": [wandb.Image(f'./%s/YtoX_{epoch}_{image_ix}.jpg' %
+                            (save_path))]}, commit=True)
             image_ix += 1
         break
 

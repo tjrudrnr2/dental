@@ -68,11 +68,12 @@ def main():
 
     else:
         print("Training...")
-        wandb.init(project=args.project_name,reinit=True)
-        wandb.config.update(args)
-        if args.run_name:
-            wandb.run.name=args.run_name
-            wandb.run.save()
+        if args.save:
+            wandb.init(project=args.project_name,reinit=True)
+            wandb.config.update(args)
+            if args.run_name:
+                wandb.run.name=args.run_name
+                wandb.run.save()
         print("model_loading...")
         G,F,D_y,D_x=define_models(args)
         
@@ -82,12 +83,13 @@ def main():
         trainer=Trainer(G,F,D_y,D_x,loader,target_loader,device,args)
         if args.model_path:
             trainer.load_checkpoint(args.model_path)
-        if not os.path.isdir(args.generated_image_save_path):
-            os.makedirs(args.generated_image_save_path)
+        save_path = os.path.join(args.generated_image_save_path, f'{args.run_name}')
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
 
         print('Start Training...')
         loss_D_x_hist, loss_D_y_hist, loss_G_GAN_hist, loss_F_GAN_hist, \
-        loss_cycle_hist, loss_identity_hist=trainer.train(num_epochs=args.num_epochs,initialization_epochs=args.initialization_epochs,save_path=args.save_path)
+        loss_cycle_hist, loss_identity_hist=trainer.train(num_epochs=args.num_epochs,initialization_epochs=args.initialization_epochs,save_path=save_path)
         
         if args.save:
             wandb.log({"loss_D_x_hist": wandb.Histogram(loss_D_x_hist),
