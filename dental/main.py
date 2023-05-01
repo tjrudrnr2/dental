@@ -102,13 +102,16 @@ def main():
         test_images = get_test_loader(root=args.root_dir, batch_size=args.batch_size, shuffle=False,resize=args.resize)
         image_batch= next(iter(test_images))
         image_batch = image_batch.to(device)
-
         new_images = G(image_batch).detach().cpu()
+        
+        test_images = get_test_loader(root=args.target_dir, batch_size=args.batch_size, shuffle=False,resize=args.resize)
+        image_batch= next(iter(test_images))
+        image_batch = image_batch.to(device)
         new_images_2 = F(image_batch).detach().cpu()
 
         tvutils.save_image(image_batch, 'test_images.jpg', nrow=3, padding=2, normalize=True, value_range=(-1, 1))
-        tvutils.save_image(new_images, 'generated_images.jpg', nrow=3, padding=2, normalize=True, value_range=(-1, 1))   
-        tvutils.save_image(new_images_2, 'generated_images_2.jpg', nrow=3, padding=2, normalize=True, value_range=(-1, 1))
+        tvutils.save_image(new_images, f'generated_X_{args.loss}.jpg', nrow=3, padding=2, normalize=True, value_range=(-1, 1))   
+        tvutils.save_image(new_images_2, f'generated_Y_{args.loss}.jpg', nrow=3, padding=2, normalize=True, value_range=(-1, 1))
         
     # define_model
 
