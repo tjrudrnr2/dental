@@ -9,7 +9,7 @@ from torchvision import transforms
 
 
 from torch.utils.data import DataLoader
-from datasets.dataloader import get_train_loader,get_test_loader,get_eval_loader
+from datasets.dataloader import get_train_loader,get_eval_loader
 import numpy as np
 import os
 import wandb
@@ -50,7 +50,7 @@ def main():
 
         load_pretrained_generators(G,F,args.model_path)
         
-        test_loader = get_test_loader(root=args.root_dir, batch_size=args.batch_size, shuffle=False,resize=args.resize,gray=args.gray)
+        test_loader = get_eval_loader(root=args.root_dir, batch_size=args.batch_size, shuffle=False,resize=args.resize,gray=args.gray)
         image_batch=next(iter(test_loader)).to(device)
         new_images=G(image_batch).detach().cpu()
 
@@ -78,26 +78,22 @@ def main():
         G,F,D_y,D_x=define_models(args)
         
         loader,target_loader=get_train_loader(args.root_dir,args.target_dir,batchsize=args.batch_size,resize=args.resize)
+        eval_loader=get_eval_loader(args.root_dir,batchsize=args.batch_size,resize=args.resize)
         print("loader len : ", len(loader))
         print("target_loader len : ", len(target_loader))
-        trainer=Trainer(G,F,D_y,D_x,loader,target_loader,device,args)
+        trainer=Trainer(G,F,D_y,D_x,loader,target_loader,eval_loader,device,args)
         if args.model_path:
             trainer.load_checkpoint(args.model_path)
         save_path = os.path.join(args.generated_image_save_path, f'{args.run_name}')
         if not os.path.exists(save_path):
             os.makedirs(save_path)
+        if not os.path.exists(os.path.join(args.save_path, f'{args.run_name}')):
+            os.mkdir(os.path.join(args.save_path, f'{args.run_name}'))
 
         print('Start Training...')
         loss_D_x_hist, loss_D_y_hist, loss_G_GAN_hist, loss_F_GAN_hist, \
         loss_cycle_hist, loss_identity_hist=trainer.train(num_epochs=args.num_epochs,initialization_epochs=args.initialization_epochs,save_path=save_path)
-        
-        if args.save:
-            wandb.log({"loss_D_x_hist": wandb.Histogram(loss_D_x_hist),
-                    "loss_D_y_hist" : wandb.Histogram(loss_D_y_hist),
-                    "loss_G_GAN_hist" : wandb.Histogram(loss_G_GAN_hist),
-                    "loss_F_GAN_hist" : wandb.Histogram(loss_F_GAN_hist),
-                    "loss_cycle_hist" : wandb.Histogram(loss_cycle_hist),
-                    "loss_identity_hist" : wandb.Histogram(loss_identity_hist)})
+
         # 시험용으로 해봄
         test_images = get_test_loader(root=args.root_dir, batch_size=args.batch_size, shuffle=False,resize=args.resize)
         image_batch= next(iter(test_images))

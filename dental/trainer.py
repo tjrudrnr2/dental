@@ -6,22 +6,22 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from tqdm import tqdm
-from utils import he_init
+from utils import *
 from torchvision import transforms
 from PIL import Image
 import loss.hingeloss as hingeloss
 import loss.r1 as r1
 import wandb
 
+
 class Trainer:
-    def __init__(self,G,F,D_y,D_x,loader,target_loader,device,args):
+    def __init__(self,G,F,D_y,D_x,loader,target_loader,eval_loader,device,args):
         self.G=G.to(device)
         self.F=F.to(device)
         self.D_y=D_y.to(device)
         self.D_x=D_x.to(device)
         self.args=args
         self.device=device
-        
         self.G_optimizer = optim.Adam(self.G.parameters(), lr=args.lr, betas=(args.adam_beta1, 0.999))
         self.F_optimizer = optim.Adam(self.F.parameters(), lr=args.lr, betas=(args.adam_beta1, 0.999))
         self.D_x_optimizer = optim.Adam(self.D_x.parameters(), lr=args.lr, betas=(args.adam_beta1, 0.999))
@@ -32,7 +32,10 @@ class Trainer:
         # dataloader
         self.loader=loader
         self.target_loader=target_loader
-
+        self.eval_loader=eval_loader
+        
+        self.target_dir=args.target_dir
+        self.ckpt_save_path=os.path.join(args.save_path, f'{args.run_name}')
         #loss
         if self.args.loss == "cyclegan":
             self.GAN_criterion=nn.MSELoss().to(device)
@@ -61,7 +64,7 @@ class Trainer:
         self.num_epochs=args.num_epochs
         self.curr_epoch=0
         self.print_every=args.print_every
-        self.generated_image_save_path=os.path.join(args.generated_image_save_path, f'/{self.args.run_name}')
+        self.generated_image_save_path=os.path.join(args.generated_image_save_path, f'{self.args.run_name}')
         
         self.init_loss_hist = []
         self.loss_D_x_hist = []
@@ -101,7 +104,8 @@ class Trainer:
                 os.makedirs(save_path)
         except OSError:
             print ('Error: Creating directory. ' + save_path)
-            
+        best_fid=1000
+        best_epoch=0
         ## training start
         print("training real epoch start...")
         for epoch in tqdm(range(self.curr_epoch, num_epochs),desc="epochs",mininterval=0.01):
@@ -154,22 +158,33 @@ class Trainer:
                     
                 })
             if self.args.save:              
+                fid=calculate_fid(self.G, self.eval_loader,os.path.join(self.generated_image_save_path,"test"),self.target_dir,device=self.device)
+                wandb.log({"FID" : fid})
+                if fid<=best_fid:
+                    self.save_checkpoint(os.path.join(self.ckpt_save_path, 'best.ckpt'))
+                    best_fid=fid
+                    best_epoch=self.curr_epoch
+                    wandb.run.summary["best_fid"]=fid
+                    wandb.run.summary["best_epoch"]=best_epoch
                 wandb.log({"loss_D_x_hist": epoch_loss_D_x/devide,
-                    "loss_D_y_hist" : epoch_loss_D_y/devide,
-                    "loss_G_GAN_hist" : epoch_loss_G_GAN/devide,
-                    "loss_F_GAN_hist" : epoch_loss_F_GAN/devide,
-                    "loss_cycle_hist" : epoch_loss_cycle/devide,
-                    "loss_identity_hist" : epoch_loss_identity/devide,
-                    }) 
+                      "loss_D_y_hist" : epoch_loss_D_y/devide,
+                      "loss_G_GAN_hist" : epoch_loss_G_GAN/devide,
+                      "loss_F_GAN_hist" : epoch_loss_F_GAN/devide,
+                      "loss_cycle_hist" : epoch_loss_cycle/devide,
+                      "loss_identity_hist" : epoch_loss_identity/devide,
+                      "fid" : fid,
+                      "epoch" :self.curr_epoch
+                      }) 
+
             if self.image_test and self.curr_epoch%5==0:
                 generate_and_save_images(self.G,self.loader,self.F,self.target_loader,
                                          save_path,self.curr_epoch,self.args.save,self.device)
             self.curr_epoch += 1
             if self.curr_epoch%10==0:
-                self.save_checkpoint(os.path.join(save_path, 'checkpoint-epoch-{0}.ckpt'.format(self.curr_epoch)))
+                self.save_checkpoint(os.path.join(self.ckpt_save_path, 'checkpoint-epoch-{0}.ckpt'.format(self.curr_epoch)))
             print("Training Phase [{0}/{1}], {2:.4f} seconds".format(self.curr_epoch, num_epochs, time.time() - start))
 
-        self.save_checkpoint(os.path.join(save_path, 'checkpoint-epoch-{0}.ckpt'.format(num_epochs)))
+        self.save_checkpoint(os.path.join(self.ckpt_save_path, 'checkpoint-epoch-{0}.ckpt'.format(num_epochs)))
 
         return self.loss_D_x_hist, self.loss_D_y_hist, self.loss_G_GAN_hist, self.loss_F_GAN_hist, \
                self.loss_cycle_hist, self.loss_identity_hist

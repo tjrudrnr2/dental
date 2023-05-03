@@ -24,7 +24,7 @@ def get_opts():
     parser.add_argument("--save_path",default="./checkpoints/CycleGAN/")
     parser.add_argument("--image_test",action="store_false",
                         help="if action, generate test image per every 5 epochs")
-    parser.add_argument("--generated_image_save_path",default='generated_images/CycleGAN/')
+    parser.add_argument("--generated_image_save_path",default='./generated_images/CycleGAN/')
     parser.add_argument("--batch_size",type=int, default=4)
     parser.add_argument("--print_every",type=int,default=100)
     parser.add_argument("--test_image_path",default="generated_images/test")

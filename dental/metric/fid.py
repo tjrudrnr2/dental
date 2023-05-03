@@ -1,5 +1,5 @@
-import os,sys
 import argparse
+import os,sys
 
 import torch
 import torch.nn as nn
@@ -7,7 +7,7 @@ import numpy as np
 from torchvision import models
 from scipy import linalg
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
-from datasets.dataloader import get_eval_loader
+from datasets.dataloader import get_metric_loader
 try:
     from tqdm import tqdm
 except ImportError:
@@ -17,7 +17,7 @@ except ImportError:
 class InceptionV3(nn.Module):
     def __init__(self):
         super().__init__()
-        inception = models.inception_v3(pretrained=True)
+        inception = models.inception_v3(pretrained='Inception_V3_Weights.IMAGENET1K_V1')
         self.block1 = nn.Sequential(
             inception.Conv2d_1a_3x3, inception.Conv2d_2a_3x3,
             inception.Conv2d_2b_3x3,
@@ -50,11 +50,11 @@ def frechet_distance(mu, cov, mu2, cov2):
 
 
 @torch.no_grad()
-def calculate_fid_given_paths(paths, img_size=256, batch_size=50):
-    print('Calculating FID given paths %s and %s...' % (paths[0], paths[1]))
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+def calculate_fid_given_paths(path,path2, img_size=256, batch_size=50):
+    print('Calculating FID given paths %s and %s...' % (path, path2))
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     inception = InceptionV3().eval().to(device)
-    loaders = [get_eval_loader(path, img_size, batch_size) for path in paths]
+    loaders = get_metric_loader(path,path2,batchsize=batch_size,size=[img_size,img_size])
 
     mu, cov = [], []
     for loader in loaders:

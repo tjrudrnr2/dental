@@ -4,6 +4,8 @@ CUDA_VISIBLE_DEVICES=7 python main.py --root_dir ./data/processed/R --target_dir
 # Scripts
 ## if use r1-reg, rl should be 1
 python main.py --loss hingeloss --run_name='test' --r1=0 --save=True
+## jaejung
+CUDA_VISIBLE_DEVICES=0 python main.py --loss hingeloss --run_name test --r1 0 --save True --root_dir /nas/lait/5000_Datasets/Image/CelebA/img_align_celeba/ --target_dir /nas/lait/5000_Datasets/Image/ukiyoe-1024 --initialization_epochs 0
 
 # 코드 문제없는지 테스트
 CUDA_VISIBLE_DEVICES=4 python main.py --root_dir ./data/processed/R --target_dir ./data/processed/V --lambda_cycle 10 --num_epochs 2 --save_path ./checkpoints/CycleGAN/test --generated_image_save_path generated_images/CycleGAN/test --batch_size 4 --run_name test
