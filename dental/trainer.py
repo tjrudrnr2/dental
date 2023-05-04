@@ -41,6 +41,7 @@ class Trainer:
             self.GAN_criterion=nn.MSELoss().to(device)
         elif self.args.loss == "hingeloss":
             self.GAN_criterion=hingeloss.HingeLoss().to(device)
+            
         self.Cycle_criterion=nn.L1Loss().to(device)
         self.Identity_criterion=nn.L1Loss().to(device)
         if self.args.r1:
@@ -206,6 +207,7 @@ class Trainer:
         self.generated_x_images.save(generated_x.detach())
 
         # train D_y with gray_images and generated_y
+        target_img.requires_grad = True
         target_output = self.D_y(target_img) 
         target_target = torch.ones_like(target_output)
         loss_animation = self.GAN_criterion(target_output, target_target)
@@ -213,20 +215,25 @@ class Trainer:
 
         generated_y_sample = self.generated_y_images.sample(self.args.batch_size)
         generated_output = self.D_y(generated_y_sample)
-        generated_target = torch.zeros_like(generated_output)
+        if self.args.loss == 'cyclegan':
+            generated_target = torch.zeros_like(generated_output)
+        elif self.args.loss == 'hingeloss':
+            generated_target = torch.full_like(generated_output, -1)
+            
         loss_generated = self.GAN_criterion(generated_output, generated_target)
         loss_D_y += loss_generated
         loss_D_y /= 2
         
         # R1 regularizatoin term for Discriminator_y
         if self.args.r1:
-            r1_reg_y = self.R1_reg(target_output, target_target)
+            r1_reg_y = self.R1_reg(target_output, target_img)
             loss_D_y += r1_reg_y
 
         loss_D_y.backward()
         self.D_y_optimizer.step()
 
         # train D_x with img and generated_x
+        img.requires_grad = True
         photo_output = self.D_x(img)
         photo_target = torch.ones_like(photo_output)
         loss_photo = self.GAN_criterion(photo_output, photo_target)
@@ -234,14 +241,17 @@ class Trainer:
 
         generated_x_sample = self.generated_x_images.sample(self.args.batch_size)
         generated_output = self.D_x(generated_x_sample)
-        generated_target = torch.zeros_like(generated_output)
+        if self.args.loss == 'cyclegan':
+            generated_target = torch.zeros_like(generated_output)
+        elif self.args.loss == 'hingeloss':
+            generated_target = torch.full_like(generated_output, -1)
         loss_generated = self.GAN_criterion(generated_output, generated_target)
         loss_D_x += loss_generated
         loss_D_x /= 2
         
         # R1 regularizatoin term for Discriminator_x
         if self.args.r1:
-            r1_reg_x = self.R1_reg(photo_output, photo_target)
+            r1_reg_x = self.R1_reg(photo_output, img)
             loss_D_x += r1_reg_x
 
         loss_D_x.backward()

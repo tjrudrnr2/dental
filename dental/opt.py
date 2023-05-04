@@ -18,7 +18,7 @@ def get_opts():
     parser.add_argument("--adam_beta1",type=int,default=0.5)
     parser.add_argument("--lambda_cycle",type=int,default=10.0)
     parser.add_argument("--lambda_identity",type=int,default=0.5)
-    parser.add_argument("--initialization_epochs",type=int,default=10)
+    parser.add_argument("--initialization_epochs",type=int,default=1)
     parser.add_argument("--content_loss_weight",type=int,default=5)
     parser.add_argument("--num_epochs",type=int,default=100)
     parser.add_argument("--save_path",default="./checkpoints/CycleGAN/")

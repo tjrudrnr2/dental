@@ -15,6 +15,7 @@ import torch.nn as nn
 import copy
 import pandas as pd
 import torchvision.utils as vutils
+from sklearn.utils import resample
 
 def listdir(dname):
     # 해당 경로 하위의 모든 image파일 경로 
@@ -62,6 +63,7 @@ class CustomCelebADataset(Dataset):
         self.length = len(self.filename)
 
     def __len__(self):
+        # return 1303*4
         return self.length
 
     def __getitem__(self, idx):
@@ -76,7 +78,7 @@ class CustomCelebADataset(Dataset):
             return img
         return img, target
 
-def get_train_loader(root,target_root,batchsize=8,num_workers=4,shuffle=True,size=[64,64],resize=True,gray=False):
+def get_train_loader(root,target_root,batchsize=8,num_workers=4,shuffle=True,size=[256,256],resize=True,gray=False):
     
     if resize:
         transform=transforms.Compose([
@@ -88,7 +90,7 @@ def get_train_loader(root,target_root,batchsize=8,num_workers=4,shuffle=True,siz
                                  std=[0.5,0.5,0.5])
             ])
         celeba_transform=transforms.Compose([
-            transforms.CenterCrop(160),
+            # transforms.CenterCrop(160),
             transforms.Resize(size),
             # transforms.RandomCrop(size),
             # transforms.Resize([resize,resize]),
@@ -105,6 +107,10 @@ def get_train_loader(root,target_root,batchsize=8,num_workers=4,shuffle=True,siz
             ])
     
     dataset=CustomCelebADataset(root,split='train',transforms=celeba_transform)
+    # downsample_dataset = resample(dataset,
+    #                         replace=True,
+    #                         n_samples=5000,
+    #                         random_state=42)
     target_dataset=DefaultDataset(target_root,transform)
 
     loader=data.DataLoader(dataset=dataset,
@@ -123,7 +129,7 @@ def get_train_loader(root,target_root,batchsize=8,num_workers=4,shuffle=True,siz
     # target_img, _ = next(iter(target_dataset))
     # vutils.save_image(target_img[:], f'domain_B_img.png', normarlize=True)
     return loader,target_loader
-def get_metric_loader(root,target_root,batchsize=8,num_workers=4,shuffle=True,size=[64,64],resize=True):
+def get_metric_loader(root,target_root,batchsize=8,num_workers=4,shuffle=True,size=[256,256],resize=True):
     
     if resize:
         transform=transforms.Compose([
@@ -154,7 +160,7 @@ def get_metric_loader(root,target_root,batchsize=8,num_workers=4,shuffle=True,si
     return loader,target_loader
     
 
-def get_eval_loader(root,batchsize=8,num_workers=4,shuffle=True,size=[64,64],resize=True,gray=False):
+def get_eval_loader(root,batchsize=8,num_workers=4,shuffle=True,size=[256,256],resize=True,gray=False):
     
     if resize:
         transform=transforms.Compose([
@@ -166,7 +172,7 @@ def get_eval_loader(root,batchsize=8,num_workers=4,shuffle=True,size=[64,64],res
                                  std=[0.5,0.5,0.5])
             ])
         celeba_transform=transforms.Compose([
-            transforms.CenterCrop(160),
+            # transforms.CenterCrop(160),
             transforms.Resize(size),
             # transforms.RandomCrop(size),
             # transforms.Resize([resize,resize]),
